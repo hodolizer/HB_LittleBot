@@ -4,6 +4,7 @@ Python Slack Bot class for use with the pythOnBoarding app
 """
 import os
 import message
+import subprocess
 
 from slackclient import SlackClient
 
@@ -34,7 +35,8 @@ class Bot(object):
         # an oauth token. We can connect to the client without authenticating
         # by passing an empty string as a token and then reinstantiating the
         # client with a valid OAuth token once we have one.
-        self.client = SlackClient("")
+        #self.client = SlackClient("")
+        self.client = SlackClient("xoxb-445512136161-446113431922-MbaetJ62o8U1mr4u91BTauSq")
         # We'll use this dictionary to store the state of each message object.
         # In a production envrionment you'll likely want to store this more
         # persistantly in  a database.
@@ -56,12 +58,14 @@ class Bot(object):
         # After the user has authorized this app for use in their Slack team,
         # Slack returns a temporary authorization code that we'll exchange for
         # an OAuth token using the oauth.access endpoint
+        print ("\ncalling auth client.api_call\n")
         auth_response = self.client.api_call(
                                 "oauth.access",
                                 client_id=self.oauth["client_id"],
                                 client_secret=self.oauth["client_secret"],
                                 code=code
                                 )
+        print ("\ncclient.api_call returns %s\n" % (str(auth_response),))
         # To keep track of authorized teams and their associated OAuth tokens,
         # we will save the team ID and bot tokens to the global
         # authed_teams object
@@ -89,6 +93,7 @@ class Bot(object):
         """
         new_dm = self.client.api_call("im.open",
                                       user=user_id)
+        print ("\nnew_dm: %s\n" % str(new_dm))
         dm_id = new_dm["channel"]["id"]
         return dm_id
 
@@ -132,6 +137,121 @@ class Bot(object):
         # the attachments on the message object which we're accessing in the
         # API call below through the message object's `attachments` attribute.
         message_obj.create_attachments()
+        post_message = self.client.api_call("chat.postMessage",
+                                            channel=message_obj.channel,
+                                            username=self.name,
+                                            icon_emoji=self.emoji,
+                                            text=message_obj.text,
+                                            attachments=message_obj.attachments
+                                            )
+        timestamp = post_message["ts"]
+        # We'll save the timestamp of the message we've just posted on the
+        # message object which we'll use to update the message after a user
+        # has completed an onboarding task.
+        message_obj.timestamp = timestamp
+
+    def git_status(self, team_id, user_id, incoming_text):
+        """
+        Get the git status of this project. 
+
+        Parameters
+        ----------
+        team_id : str
+            id of the Slack team associated with the incoming event
+        user_id : str
+            id of the Slack user associated with the incoming event
+        incoming_text: str
+            The git status request string
+
+        """
+        # We've imported a Message class from `message.py` that we can use
+        # to create message objects for each onboarding message we send to a
+        # user. We can use these objects to keep track of the progress each
+        # user on each team has made getting through our onboarding tutorial.
+
+        # First, we'll check to see if there's already messages our bot knows
+        # of for the team id we've got.
+        if self.messages.get(team_id):
+            # Then we'll update the message dictionary with a key for the
+            # user id we've recieved and a value of a new message object
+            self.messages[team_id].update({user_id: message.Message(message_type="status")})
+        else:
+            # If there aren't any message for that team, we'll add a dictionary
+            # of messages for that team id on our Bot's messages attribute
+            # and we'll add the first message object to the dictionary with
+            # the user's id as a key for easy access later.
+            self.messages[team_id] = {user_id: message.Message(message_type="status")}
+        message_obj = self.messages[team_id][user_id]
+        # Then we'll set that message object's channel attribute to the DM
+        # of the user we'll communicate with
+        message_obj.channel = self.open_dm(user_id)
+        # We'll use the message object's method to create the attachments that
+        # we'll want to add to our Slack message. This method will also save
+        # the attachments on the message object which we're accessing in the
+        # API call below through the message object's `attachments` attribute.
+        #message_obj.create_attachments()
+        # Get rid of the "echo" string or it will keep looping.
+        p = subprocess.Popen('git status', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in p.stdout.readlines():
+            message_obj.text += "%s" % line
+        retval = p.wait()
+
+        post_message = self.client.api_call("chat.postMessage",
+                                            channel=message_obj.channel,
+                                            username=self.name,
+                                            icon_emoji=self.emoji,
+                                            text=message_obj.text,
+                                            attachments=message_obj.attachments
+                                            )
+        timestamp = post_message["ts"]
+        # We'll save the timestamp of the message we've just posted on the
+        # message object which we'll use to update the message after a user
+        # has completed an onboarding task.
+        return retval
+
+    def echo_message(self, team_id, user_id, incoming_text):
+        """
+        Create and send an onboarding welcome message to new users. Save the
+        time stamp of this message on the message object for updating in the
+        future.
+
+        Parameters
+        ----------
+        team_id : str
+            id of the Slack team associated with the incoming event
+        user_id : str
+            id of the Slack user associated with the incoming event
+
+        """
+        # We've imported a Message class from `message.py` that we can use
+        # to create message objects for each onboarding message we send to a
+        # user. We can use these objects to keep track of the progress each
+        # user on each team has made getting through our onboarding tutorial.
+
+        # First, we'll check to see if there's already messages our bot knows
+        # of for the team id we've got.
+        if self.messages.get(team_id):
+            # Then we'll update the message dictionary with a key for the
+            # user id we've recieved and a value of a new message object
+            self.messages[team_id].update({user_id: message.Message(message_type="echo")})
+        else:
+            # If there aren't any message for that team, we'll add a dictionary
+            # of messages for that team id on our Bot's messages attribute
+            # and we'll add the first message object to the dictionary with
+            # the user's id as a key for easy access later.
+            self.messages[team_id] = {user_id: message.Message(message_type="echo")}
+        message_obj = self.messages[team_id][user_id]
+        # Then we'll set that message object's channel attribute to the DM
+        # of the user we'll communicate with
+        message_obj.channel = self.open_dm(user_id)
+        # We'll use the message object's method to create the attachments that
+        # we'll want to add to our Slack message. This method will also save
+        # the attachments on the message object which we're accessing in the
+        # API call below through the message object's `attachments` attribute.
+        #message_obj.create_attachments()
+        # Get rid of the "echo" string or it will keep looping.
+        outgoing_text = incoming_text.replace("echo ", "")
+        message_obj.text += " You said %s" % outgoing_text
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
                                             username=self.name,

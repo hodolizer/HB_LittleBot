@@ -32,19 +32,37 @@ def _event_handler(event_type, slack_event):
 
     """
     team_id = slack_event["team_id"]
+    print ("\nslack_event: %s" % (str(slack_event),))
     # ================ Team Join Events =============== #
     # When the user first joins a team, the type of event will be team_join
-    if event_type == "team_join":
-        user_id = slack_event["event"]["user"]["id"]
+    #if event_type == "team_join":
+    if event_type == "message" and slack_event["event"]["text"].lower().find("startitoff") >= 0:
+        #user_id = slack_event["event"]["user"]["id"]
+        user_id = slack_event["authed_users"][0]
         # Send the onboarding message
         pyBot.onboarding_message(team_id, user_id)
-        return make_response("Welcome Message Sent", 200,)
+        return make_response("Onboarding Message Sent", 200,)
+
+    if event_type == "message" and slack_event["event"]["text"].find("echo") >= 0:
+        #user_id = slack_event["event"]["user"]["id"]
+        user_id = slack_event["authed_users"][0]
+        # Send the onboarding message
+        pyBot.echo_message(team_id, user_id, slack_event["event"]["text"])
+        return make_response("Echo Message Sent", 200,)
+
+    elif event_type == "message" and slack_event["event"]["text"].find("git status") >= 0:
+        #user_id = slack_event["event"]["user"]["id"]
+        user_id = slack_event["authed_users"][0]
+        # Send the onboarding message
+        ret = pyBot.git_status(team_id, user_id, slack_event["event"]["text"])
+        return make_response("Status Mesage Sent", 200,)
 
     # ============== Share Message Events ============= #
     # If the user has shared the onboarding message, the event type will be
     # message. We'll also need to check that this is a message that has been
     # shared by looking into the attachments for "is_shared".
-    elif event_type == "message" and slack_event["event"].get("attachments"):
+    elif event_type == "message" and slack_event["event"].get("attachments") \
+            or slack_event["event"]["text"].find("startit") >= 0:
         user_id = slack_event["event"].get("user")
         if slack_event["event"]["attachments"][0].get("is_share"):
             # Update the onboarding message and check off "Share this Message"

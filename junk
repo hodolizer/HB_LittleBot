@@ -1,0 +1,7 @@
+slack_event: 
+{u'event_time': 1539826069, u'api_app_id': u'AD40C5AMR', u'event_id': u'EvDG4NRGUR', u'authed_users': [u'UD5DSS5K8', u'UD43BCPT4'], u'team_id': u'TD3F2404R', u'token': u'FFtglDTi28BP4EKibTWmCqvS', u'type': u'event_callback', 
+
+u'event': {u'username': u'pythonboardingbot', 
+u'icons': {u'image_64': u'https://a.slack-edge.com/37d58/img/emoji_2017_12_06/apple/1f916.png', u'emoji': u':robot_face:'}, 
+
+u'event_ts': u'1539826069.000100', u'text': u'On branch master\nYour branch is up to date with \'origin/master\'.\n\nChanges not staged for commit:\n  (use "git add &lt;file&gt;..." to update what will be committed)\n  (use "git checkout -- &lt;file&gt;..." to discard changes in working directory)\n\n\tmodified:   app.py\n\tmodified:   bot.py\n\tmodified:   message.py\n\nUntracked files:\n  (use "git add &lt;file&gt;..." to include in what will be committed)\n\n\t.app.py.swp\n\t.junk.swp\n\tappone_setenv\n\tjunk\n\twbot_setenv\n\nno changes added to commit (use "git add" and/or "git commit -a")\n', u'ts': u'1539826069.000100', u'channel_type': u'im', u'subtype': u'bot_message', u'type': u'message', u'channel': u'DD3B60FCY', u'bot_id': u'BD3TCGK1A'}}
