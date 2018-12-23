@@ -19,28 +19,67 @@ class Bot(object):
     """ Instanciates a Bot object to handle Slack onboarding interactions."""
     def __init__(self):
         super(Bot, self).__init__()
-        self.name = "pythonboardingbot"
+        self.name = "appone"
         self.emoji = ":robot_face:"
         # When we instantiate a new bot object, we can access the app
         # credentials we set earlier in our local development environment.
-        self.oauth = {"client_id": os.environ.get("CLIENT_ID"),
-                      "client_secret": os.environ.get("CLIENT_SECRET"),
-                      # Scopes provide and limit permissions to what our app
-                      # can access. It's important to use the most restricted
-                      # scope that your app will need.
-                      "scope": "bot"}
-        self.verification = os.environ.get("VERIFICATION_TOKEN")
+        # Scopes provide and limit permissions to what our app
+        # can access. It's important to use the most restricted
+        # scope that your app will need.
+        self.oauth = {"client_id": os.environ.get("SLACK_CLIENT_ID"),
+                      "client_secret": os.environ.get("SLACK_CLIENT_SECRET"),
+                      "scope": os.environ.get("SLACK_BOT_SCOPE","bot")}
+        self.user_name_map = {}
 
         # NOTE: Python-slack requires a client connection to generate
         # an oauth token. We can connect to the client without authenticating
         # by passing an empty string as a token and then reinstantiating the
         # client with a valid OAuth token once we have one.
         #self.client = SlackClient("")
-        self.client = SlackClient("xoxb-445512136161-446113431922-MbaetJ62o8U1mr4u91BTauSq")
+        bot_oauth_default="xoxb-445512136161-446113431922-MbaetJ62o8U1mr4u91BTauSq"
+        bot_oauth_token = os.environ.get("SLACK_BOT_OAUTH_ACCESS",bot_oauth_default)
+        print ("calling SlackClient with token %s" % (bot_oauth_token,))
+        self.client = SlackClient(bot_oauth_token, scope="bot,users:read")
+        #slack_client_secret_default='a00680c593c0af7f33836d39243bfc73'
+        #slack_client_secret = os.environ.get("SLACK-CLIENT_SECRET",slack_client_secret_default)
+        #print ("calling SlackClient with token %s" % (slack_client_secret,))
+        #self.client = SlackClient(slack_client_secret)
+
         # We'll use this dictionary to store the state of each message object.
         # In a production envrionment you'll likely want to store this more
         # persistantly in  a database.
         self.messages = {}
+
+    def get_all_users_map(self):
+        """
+        Get all users for which we have visibility and create a dictionary map 
+        by user 'id' to user information. 
+        """
+
+        slack_client = self.client
+
+        api_call = slack_client.api_call("users.list")
+        users = api_call.get('members')
+        if api_call.get('ok'):
+            for user in users:
+                self.user_name_map[user['id']] = user
+        return self.user_name_map
+            
+    def get_bot_userid(self, bot_name):
+        # Courtesy of Twilio
+        # https://www.twilio.com/blog/2016/05/add-phone-calling-slack-python.html
+
+        # retrieve all users so we can find our bot
+        users = self.get_all_users_map()
+        if users:
+            for uid, udata in users.items():
+                print ("got user: %s\tid: %s" % (udata["profile"].get("display_name", "unknown"), uid))
+            for user in users:
+                if 'name' in users[user] and users[user].get('name') == bot_name:
+                    print("Bot ID for '" + users[user]['name'] + "' is " + user)
+                    return user
+        print("could not find bot user with the name " + bot_name)
+        return ''
 
     def auth(self, code):
         """
@@ -75,6 +114,8 @@ class Bot(object):
         # Then we'll reconnect to the Slack Client with the correct team's
         # bot token
         self.client = SlackClient(authed_teams[team_id]["bot_token"])
+
+        
 
     def open_dm(self, user_id):
         """
@@ -249,9 +290,16 @@ class Bot(object):
         # the attachments on the message object which we're accessing in the
         # API call below through the message object's `attachments` attribute.
         #message_obj.create_attachments()
-        # Get rid of the "echo" string or it will keep looping.
-        outgoing_text = incoming_text.replace("echo ", "")
-        message_obj.text += " You said %s" % outgoing_text
+
+        user_name = self.user_name_map[user_id]['profile']['display_name']
+
+        print ("IN Echo handler with message: %s" % (incoming_text,))
+        if incoming_text.lower().find("hunka hunka"):
+            outgoing_text = incoming_text + " Yes, %s, I have a burning love for Elvis too." % user_name
+        else:
+            outgoing_text = incoming_text
+        print ("Looking in %s for id %s" % (self.user_name_map[user_id]['profile'], user_id))
+        message_obj.text += "Hi %s. You said %s" %  (user_name,outgoing_text)
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
                                             username=self.name,
