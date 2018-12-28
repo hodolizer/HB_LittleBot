@@ -1,12 +1,7 @@
-# pythOnBoarding Bot
+# python HB_DEVOPS Bot
 ## Building a simple bot using [Slack's Events API](https://api.slack.com/events-api) in Python
-This bot is an example implementation of building a Slack App with Slack's Python SDK, [python-slackclient](http://python-slackclient.readthedocs.io/en/latest/). We'll cover all the basic steps you'll need to create and configure your first Slack App in python.
+This bot is for managing a github repository along with Circle CI builds, Docker depoloyments and ?
 
-PythOnBoarding Bot is designed to greet new users on your team and introduce them to some nifty features in Slack.
-
->![onboarding](https://cloud.githubusercontent.com/assets/32463/20369171/690028d2-ac0c-11e6-95a1-c3078762fddd.gif)
-
-Let's go write some code. You got this! :sparkles:
 
 #### Technical Requirements
 
@@ -55,12 +50,14 @@ pip install -r requirements.txt
 
 Slack will be delivering events to your app's server so your server needs to be able to receive incoming HTTPS traffic from Slack.
 
-If you are running this project locally, you'll need to set up tunnels for Slack to connect to your endpoints. [Ngrok](https://ngrok.com/) is an easy to use tunneling tool that supports HTTPS, which is required by Slack.
+If you are running this project locally, you'll need to set up tunnels for Slack to connect to your endpoints. [Serveo](https://serveo.net/) is an easy to use tunneling tool that supports HTTPS, which is required by Slack.
+ssh -o ServerAliveInterval=60 -R <your subdomain>:80:localhost:5000 serveo.net
+
 
 You'll likely want to test events coming to your server without going through the actions on your Slack team.  [Postman](https://www.getpostman.com/) is a useful tool you can use to recreate requests sent from Slack to your server. This is especially helpful for events like user join, where the workflow to recreate the event requires quite a bit of set up.
 
 ## Let's get started :tada:
-* **[Section 1: ~~Steal~~ Build This Bot](docs/Section-1.md)** :point_left:  
+* **[Section 1: Build This Bot](docs/Section-1.md)** :point_left:  
 * [Section 2: Create a Slack App and Bot User](docs/Section-2.md)  
 * [Section 3: Subscribe to Events](docs/Section-3.md)  
 * [Section 4: App Credentials](docs/Section-4.md)
@@ -84,7 +81,7 @@ You'll likely want to test events coming to your server without going through th
 
 ### Where to Find Help
 
-Wondering what to do if you can't get this dang tutorial to work for you?
+Wondering what to do if you can't get this app to work for you?
 The Slack Developer community is an awesome place to get help when you're confused
 or stuck. We have an excellent 'search first' culture and Slack is committed to
 improving our tutorials and documentation based on your feedback. If you've
@@ -94,7 +91,4 @@ to be unhelpful, try asking for help in the [Dev4Slack](http://dev4slack.xoxco.c
 Slack team.
 
 ### Feedback
-I'd love to improve this project, so if you've got some ideas :bulb:, feedback
-:raising_hand: or praise :love_letter: please file an issue, submit a PR or
-reach out to me through [Github](https://github.com/karishay) or on
-[Twitter](https://twitter.com/karishannon)!
+Reach out to me through [Github](https://github.com/hodolizer)
