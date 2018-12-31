@@ -23,9 +23,18 @@ if SLACK_SIGNING_SECRET is None:
     " SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET and SLACK_BOT_SCOPE defined"
     raise NameError(msg)
 
+# This is used to detect git commands. 
+import re
+git_regex = re.compile(r"\bgit\s")
+docker_regex = re.compile(r"\bdocker\s")
 
 BOT_USER_ID = pyBot.get_bot_userid(BOT_USER_NAME)
 print ("\nbot id is %s\n" % (BOT_USER_ID,))
+
+
+cmap = pyBot.get_channel_name_map()
+for chan, name in cmap.items():
+    print ("chan: %s name: %s" % (chan, name))
 
 def _event_handler(event_type, slack_event):
     """
@@ -40,40 +49,75 @@ def _event_handler(event_type, slack_event):
 
     """
     team_id = slack_event["team_id"]
-    print ("\nslack_event: %s" % (str(slack_event),))
-    if "user" in slack_event["event"]:
-        user_id = slack_event["event"].get("user")
-    else:
+    #print ("\nslack_event: %s" % (str(slack_event),))
+    if "bot_id" in slack_event["event"]:
         user_id = slack_event["event"].get("bot_id")
+    else:
+        user_id = slack_event["event"].get("user")
+
+    if "text" in slack_event["event"]:
+        incoming_text = slack_event["event"]["text"]
+    else:
+        incoming_text = ''
+
+    if event_type == "message" \
+        and user_id == BOT_USER_ID:
+        print ("BAILING!!!!!!!!!!!!!!!!!!!!!!")
+        return make_response("", 200, {"X-Slack-No-Retry": 1})
+
+    allowed_event_types = ['message', 'app_mention', 'pin_added', 'reaction_added', 'team_join']
+    message_event_types = ['message', 'app_mention']
+
+    if event_type not in allowed_event_types:
+        message = "Say what? Here's what you can say to me\n %s" % "\n".join(handled_events)
+        return make_response(message, 200,)
+
+    print ("checking for regex in %s" % incoming_text)
+    if event_type in ["message", "app_mention"] and git_regex.search(incoming_text):
+        print ("regex check True %s" % incoming_text)
+    else:
+        print ("regex check False %s" % incoming_text)
+        
 
     # ================ Team Join Events =============== #
     # When the user first joins a team, the type of event will be team_join
     #if event_type == "team_join":
-    if event_type == "message" and slack_event["event"]["text"].lower().find("startitoff") >= 0:
+    if event_type in message_event_types and incoming_text.lower().find("startitoff") >= 0:
         # Send the onboarding message
         pyBot.onboarding_message(team_id, user_id)
         return make_response("Onboarding Message Sent", 200,)
 
-    elif event_type == "message" \
-        and (slack_event["event"]["text"].find("echo") >= 0 
-        or slack_event["event"]["text"].find("hunka hunka") >= 0) \
+    elif event_type in message_event_types \
+        and (incoming_text.find("echo") >= 0 
+        or incoming_text.find("hunka hunka") >= 0) \
         and user_id != BOT_USER_ID:
 
         # Send the onboarding message
-        pyBot.echo_message(team_id, user_id, slack_event["event"]["text"])
+        pyBot.echo_message(team_id, user_id, incoming_text)
         return make_response("Echo Message Sent", 200,)
 
-    elif event_type == "message" and slack_event["event"]["text"].find("git status") >= 0:
+    elif event_type in message_event_types and git_regex.search(incoming_text):
 
-        # Send the onboarding message
-        ret = pyBot.git_status(team_id, user_id, slack_event["event"]["text"])
+        # Call the bot git handler
+        print ("Calling git_handler")
+        ret = pyBot.git_handler(team_id, user_id, incoming_text)
+        print ("After git_handler")
         return make_response("Status Mesage Sent", 200,)
+
+    elif event_type in message_event_types and docker_regex.search(incoming_text):
+        # Call the bot git handler
+        print ("Calling docker_handler")
+        ret = pyBot.docker_handler(team_id, user_id, incoming_text)
+        print ("After docker_handler")
+        return make_response("Status Mesage Sent", 200,)
+
+    # ============== Share Message Events ============= #
 
     # ============== Share Message Events ============= #
     # If the user has shared the message, the event type will be
     # message. We'll also need to check that this is a message that has been
     # shared by looking into the attachments for "is_shared".
-    elif event_type == "message" and slack_event["event"].get("attachments"):
+    elif event_type in message_event_types and slack_event["event"].get("attachments"):
         if slack_event["event"]["attachments"][0].get("is_share"):
             # Update the onboarding message and check off "Share this Message"
             pyBot.update_share(team_id, user_id)
@@ -96,13 +140,17 @@ def _event_handler(event_type, slack_event):
 
     # ============= Event Type Not Found! ============= #
     # If the event_type does not have a handler
-    elif event_type == "message": # no other message type found
-        handled_events = ["startitoff", "echo", "git_status"]
-        message = "Say what? Here's what you can say to me\n %s" % "\n".join(handled_events)
+    elif event_type in message_event_types: # no other message type found
+        git_supported = "|".join(bot.GIT_SUPPORTED)
+        handled_events = ["startitoff", "echo", "git %s" % (git_supported,)]
+        message = "Say what? Here's what you can say to me\n%s" % "\n".join(handled_events)
         print ("writing msg: %s" % message)
+        send_message(team_id, user_id, message)
         # Return a helpful error message
-        #return make_response(message, 200, {"X-Slack-No-Retry": 1})
-        return make_response(message, 200,)
+        return make_response(message, 200, {"X-Slack-No-Retry": 1})
+
+    else:
+        raise RuntimeError("%s" % str(slack_event))
 
 
 @app.route("/install", methods=["GET"])
@@ -142,8 +190,9 @@ def hears():
     slack_event = json.loads(request.data)
     if "event" in slack_event:
         if "bot_id" in slack_event:
-            return make_response("[NO EVENT IN SLACK REQUEST] These are not the droids\
-                         you're looking for.", 500, {"X-Slack-No-Retry": 1})
+            return make_response("", 200, {"content_type":
+                                             "application/json"
+                                             })
         
 
     # ============= Slack URL Verification ============ #
