@@ -15,7 +15,7 @@ from slackclient import SlackClient
 # save this in a more persistant memory store.
 authed_teams = {}
 GIT_SUPPORTED = ["status", "add", "commit"]
-DOCKER_SUPPORTED = ["image ls", "container ls"]
+
 
 
 class Bot(object):
@@ -237,11 +237,6 @@ class Bot(object):
         return ("I'm sorry. I don't understand your git command." 
            "I understand git [%s] if you would like to try one of those." % "|".join(GIT_SUPPORTED))
 
-    def docker_usage_message(self):
-
-        return ("I'm sorry. I don't understand your docker command." 
-           "I understand docker [%s] if you would like to try one of those." % "|".join(DOCKER_SUPPORTED))
-
     def git_handler(self, team_id, user_id, incoming_text):
         """
         Get the git status of this project. 
@@ -312,21 +307,14 @@ class Bot(object):
 
         # Find the action immediately following the git command.
         # git status, git add, git commit are curently supported. 
-        p2 = re.compile(r"(?<=\bdocker\s)(\w+)")
-        match_obj = p2.search(incoming_text)
-        docker_action = ''
-        if match_obj:
-            docker_action = match_obj.group()
-        if docker_action and docker_action in ['container', 'image']:
-            #p3 = re.compile(r"(?<=\b%s\s)(\w+)" % docker_action)
+        docker_action = docker_parser.parse_command(incoming_text)
+        if docker_action[:len('docker')] == 'docker':
             p = subprocess.Popen('docker %s ls' % docker_action, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             for line in p.stdout.readlines():
                 message_obj.text += "%s" % line
             retval = p.wait()
-        else: # git_action undefined. 
-            message_obj.text = self.docker_usage_message()
-            retval = 0
-
+        else:
+            message_obj.text = docker_action # The usage message
 
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
