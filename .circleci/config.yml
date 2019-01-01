@@ -1,4 +1,8 @@
+version: 1
 jobs:
   build:
+    working_directory: ~/Slack-GitHub-LittleBot
+    docker:
+        - image: circleci/python:2.7.15
     steps:
-      - run: 
+      - checkout
