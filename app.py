@@ -2,6 +2,8 @@
 """
 A routing layer for the LittleBot built using
 [Slack's Events API](https://api.slack.com/events-api) in Python
+Original code structure Courtesy Shannon Burns
+https://github.com/slackapi/Slack-Python-Onboarding-Tutorial/blob/master/LICENSE
 """
 import os
 import json
@@ -62,7 +64,7 @@ def _event_handler(event_type, slack_event):
 
     if event_type == "message" \
         and user_id == BOT_USER_ID:
-        print ("BAILING!!!!!!!!!!!!!!!!!!!!!!")
+        #print ("Ignoring my Bot message echo")
         return make_response("", 200, {"X-Slack-No-Retry": 1})
 
     allowed_event_types = ['message', 'app_mention', 'pin_added', 'reaction_added', 'team_join']
@@ -98,6 +100,7 @@ def _event_handler(event_type, slack_event):
 
     elif event_type in message_event_types and git_regex.search(incoming_text):
 
+        # Needs more sophisticated language processing on the handlers. 
         # Call the bot git handler
         print ("Calling git_handler")
         ret = pyBot.git_handler(team_id, user_id, incoming_text)
@@ -105,6 +108,7 @@ def _event_handler(event_type, slack_event):
         return make_response("Status Mesage Sent", 200,)
 
     elif event_type in message_event_types and docker_regex.search(incoming_text):
+
         # Call the bot git handler
         print ("Calling docker_handler")
         ret = pyBot.docker_handler(team_id, user_id, incoming_text)
@@ -145,7 +149,7 @@ def _event_handler(event_type, slack_event):
         handled_events = ["startitoff", "echo", "git %s" % (git_supported,)]
         message = "Say what? Here's what you can say to me\n%s" % "\n".join(handled_events)
         print ("writing msg: %s" % message)
-        send_message(team_id, user_id, message)
+        pyBot.send_message(team_id, user_id, message)
         # Return a helpful error message
         return make_response(message, 200, {"X-Slack-No-Retry": 1})
 

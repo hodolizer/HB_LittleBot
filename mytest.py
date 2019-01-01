@@ -1,5 +1,10 @@
+"""
+Courtesy Shannon Burns
+https://github.com/slackapi/Slack-Python-Onboarding-Tutorial/blob/master/LICENSE
+"""
 import os
 from flask import Flask, request
+from flask import copy_current_request_context
 from slackclient import SlackClient
 
 client_id = os.environ["SLACK_CLIENT_ID"]
@@ -18,6 +23,7 @@ def pre_install():
  '''.format(oauth_scope, client_id)
 
 @app.route("/finish_auth", methods=["GET", "POST"])
+@copy_current_request_context
 def post_install():
 
   # Retrieve the auth code from the request params

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Python Slack Message class for use with the pythOnBoarding bot
+Courtesy Shannon Burns
+https://github.com/slackapi/Slack-Python-Onboarding-Tutorial/blob/master/LICENSE
 """
 # TODO: Fix hack with yaml library for handling unicode encoding issues
 import yaml

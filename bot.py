@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Python Slack Bot class for use with the pythOnBoarding app
+Original code structure Courtesy Shannon Burns
+https://github.com/slackapi/Slack-Python-Onboarding-Tutorial/blob/master/LICENSE
 """
 import os
 import message
 import re
 import subprocess
+import docker_parser
 
 from slackclient import SlackClient
 
@@ -258,8 +261,8 @@ class Bot(object):
         message_obj = self.messages[team_id][user_id]
         message_obj.channel = self.open_dm(user_id)
 
-        # Find the action immediately following the docker command.
-        # docker container ls, docker image ls are curently supported. 
+        # Find the action immediately following the git command.
+        # git status, git add, git commit are curently supported. 
         p2 = re.compile(r"(?<=\bgit\s)(\w+)")
         match_obj = p2.search(incoming_text)
         if match_obj:
@@ -305,11 +308,13 @@ class Bot(object):
         message_obj = self.messages[team_id][user_id]
         message_obj.channel = self.open_dm(user_id)
 
-        # Find the action immediately following the git command.
-        # git status, git add, git commit are curently supported. 
+        # Find the action immediately following the docker command.
+        # docker container ls, docker image ls are curently supported. 
         docker_action = docker_parser.parse_command(incoming_text)
+        print ("Got docker_action: %s from incoming text: %s" % (docker_action, incoming_text))
         if docker_action[:len('docker')] == 'docker':
-            p = subprocess.Popen('docker %s ls' % docker_action, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            print ("running docker action: %s" % (docker_action))
+            p = subprocess.Popen('%s' % docker_action, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             for line in p.stdout.readlines():
                 message_obj.text += "%s" % line
             retval = p.wait()
@@ -508,9 +513,6 @@ class Bot(object):
     
         # Grab the message object we want to update by team id and user id
         message_obj = self.messages[team_id].get(user_id)
-        # Update the message's attachments by switching in incomplete
-        # attachment with the completed one above.
-        message_obj.share_attachment.update(completed_attachments)
         # Update the message in Slack
         post_message = self.client.api_call("chat.update",
                                             channel=message_obj.channel,

@@ -5,6 +5,7 @@ Python Slack Bot docker parser class for use with the HB Bot
 import os
 import re
 DOCKER_SUPPORTED = ["image", "container"]
+SUBCOMMAND_SUPPORTED = ["ls",]
 
 def docker_usage_message():
 
@@ -23,8 +24,12 @@ def parse_command(incoming_text):
     match_obj = parse1.search(incoming_text)
     if match_obj:
         docker_action = match_obj.group()
-    if docker_action and docker_action in ['container', 'image']:
+    if docker_action and docker_action in DOCKER_SUPPORTED:
         parse2 = re.compile(r"(?<=\b%s\s)(\w+)" % docker_action)
+        match_obj = parse2.search(incoming_text)
+        if match_obj:
+            docker_subcommand = match_obj.group()
+            if docker_subcommand in SUBCOMMAND_SUPPORTED:
+                return "docker %s %s" % (docker_action, docker_subcommand)
 
-    else: # git_action undefined. 
-        return self.docker_usage_message()
+    return docker_usage_message()
