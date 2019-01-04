@@ -38,6 +38,13 @@ cmap = pyBot.get_channel_name_map()
 for chan, name in cmap.items():
     print ("chan: %s name: %s" % (chan, name))
 
+def get_help_message():
+    git_supported = "|".join(bot.GIT_SUPPORTED)
+    handled_events = ["help", "echo", "docker [image|container]", "git %s" % (git_supported,)]
+    message = "I like to help. Here's what you can say to me\n%s" % "\n".join(handled_events)
+    return message
+
+
 def _event_handler(event_type, slack_event):
     """
     A helper function that routes events from Slack to our Bot
@@ -51,7 +58,7 @@ def _event_handler(event_type, slack_event):
 
     """
     team_id = slack_event["team_id"]
-    #print ("\nslack_event: %s" % (str(slack_event),))
+    print ("\nslack_event: %s" % (str(slack_event),))
     if "bot_id" in slack_event["event"]:
         user_id = slack_event["event"].get("bot_id")
     else:
@@ -84,9 +91,12 @@ def _event_handler(event_type, slack_event):
     # ================ Team Join Events =============== #
     # When the user first joins a team, the type of event will be team_join
     #if event_type == "team_join":
-    if event_type in message_event_types and incoming_text.lower().find("startitoff") >= 0:
+    if event_type in message_event_types \
+        and incoming_text.lower().find("startitoff") >= 0 \
+        or incoming_text.lower().find("help") >= 0:
         # Send the onboarding message
-        pyBot.onboarding_message(team_id, user_id)
+        help_message = get_help_message()
+        pyBot.help_message(team_id, user_id, help_message)
         return make_response("Onboarding Message Sent", 200,)
 
     elif event_type in message_event_types \
@@ -94,7 +104,7 @@ def _event_handler(event_type, slack_event):
         or incoming_text.find("hunka hunka") >= 0) \
         and user_id != BOT_USER_ID:
 
-        # Send the onboarding message
+        # Send the echo response message
         pyBot.echo_message(team_id, user_id, incoming_text)
         return make_response("Echo Message Sent", 200,)
 
@@ -128,13 +138,6 @@ def _event_handler(event_type, slack_event):
             return make_response("Welcome message updates with shared message",
                                  200,)
 
-    # ============= Reaction Added Events ============= #
-    # If the user has added an emoji reaction to the onboarding message
-    elif event_type == "reaction_added":
-        # Update the onboarding message
-        pyBot.update_emoji(team_id, user_id)
-        return make_response("Welcome message updates with reactji", 200,)
-
     # =============== Pin Added Events ================ #
     # If the user has added an emoji reaction to the onboarding message
     elif event_type == "pin_added":
@@ -145,11 +148,9 @@ def _event_handler(event_type, slack_event):
     # ============= Event Type Not Found! ============= #
     # If the event_type does not have a handler
     elif event_type in message_event_types: # no other message type found
-        git_supported = "|".join(bot.GIT_SUPPORTED)
-        handled_events = ["startitoff", "echo", "git %s" % (git_supported,)]
-        message = "Say what? Here's what you can say to me\n%s" % "\n".join(handled_events)
-        print ("writing msg: %s" % message)
-        pyBot.send_message(team_id, user_id, message)
+        help_message = get_help_message()
+        print ("writing msg: %s" % message_text)
+        pyBot.help_message(team_id, user_id, help_message)
         # Return a helpful error message
         return make_response(message, 200, {"X-Slack-No-Retry": 1})
 

@@ -11,15 +11,15 @@ import yaml
 class Message(object):
     """
     Instanciates a Message object to create and manage
-    Slack onboarding messages.
+    Slack messages.
+    Mainly just a placeholder for later DB backed message handling
     """
     def __init__(self,message_type=None):
         super(Message, self).__init__()
         self.channel = ""
         self.timestamp = ""
         if not message_type:
-            self.text = ("Welcome to Slack! We're so glad you're here. "
-                         "\nGet started by completing the steps below.")
+            self.text = ("Welcome to LittleBot! We're so glad you're here.")
             self.emoji_attachment = {}
             self.pin_attachment = {}
             self.share_attachment = {}

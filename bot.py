@@ -20,7 +20,6 @@ authed_teams = {}
 GIT_SUPPORTED = ["status", "add", "commit"]
 
 
-
 class Bot(object):
     """ Instanciates a Bot object to handle Slack onboarding interactions."""
     def __init__(self):
@@ -46,7 +45,7 @@ class Bot(object):
         bot_oauth_default="xoxb-445512136161-446113431922-MbaetJ62o8U1mr4u91BTauSq"
         bot_oauth_token = os.environ.get("SLACK_BOT_OAUTH_ACCESS",bot_oauth_default)
         print ("calling SlackClient with token %s" % (bot_oauth_token,))
-        self.client = SlackClient(bot_oauth_token, scope="bot,users:read")
+        self.client = SlackClient(bot_oauth_token)
         #slack_client_secret_default='a00680c593c0af7f33836d39243bfc73'
         #slack_client_secret = os.environ.get("SLACK-CLIENT_SECRET",slack_client_secret_default)
         #print ("calling SlackClient with token %s" % (slack_client_secret,))
@@ -182,7 +181,32 @@ class Bot(object):
         dm_id = new_dm["channel"]["id"]
         return dm_id
 
-    def onboarding_message(self, team_id, user_id):
+    def get_message_object(self, team_id, user_id, message_type=None):
+
+        # We've imported a Message class from `message.py` that we can use
+        # to create message objects for each onboarding message we send to a
+        # user. We can use these objects to keep track of the progress each
+        # user on each team has made getting through our onboarding tutorial.
+
+        # First, we'll check to see if there's already messages our bot knows
+        # of for the team id we've got.
+        if self.messages.get(team_id):
+            # Then we'll update the message dictionary with a key for the
+            # user id we've recieved and a value of a new message object
+            self.messages[team_id].update({user_id: message.Message(message_type=message_type)})
+        else:
+            # If there aren't any message for that team, we'll add a dictionary
+            # of messages for that team id on our Bot's messages attribute
+            # and we'll add the first message object to the dictionary with
+            # the user's id as a key for easy access later.
+            self.messages[team_id] = {user_id: message.Message(message_type=message_type)}
+        message_obj = self.messages[team_id][user_id]
+        # Then we'll set that message object's channel attribute to the DM
+        # of the user we'll communicate with
+        message_obj.channel = self.open_dm(user_id)
+        return message_obj
+
+    def help_message(self, team_id, user_id, message_text):
         """
         Create and send an onboarding welcome message to new users. Save the
         time stamp of this message on the message object for updating in the
@@ -196,6 +220,8 @@ class Bot(object):
             id of the Slack user associated with the incoming event
 
         """
+        # MSG
+        """"
         # We've imported a Message class from `message.py` that we can use
         # to create message objects for each onboarding message we send to a
         # user. We can use these objects to keep track of the progress each
@@ -217,17 +243,15 @@ class Bot(object):
         # Then we'll set that message object's channel attribute to the DM
         # of the user we'll communicate with
         message_obj.channel = self.open_dm(user_id)
-        # We'll use the message object's method to create the attachments that
-        # we'll want to add to our Slack message. This method will also save
-        # the attachments on the message object which we're accessing in the
-        # API call below through the message object's `attachments` attribute.
-        message_obj.create_attachments()
+        """ # MSG
+        message_type = "helpmsg"
+        message_obj = self.get_message_object(team_id, user_id, message_type=message_type)
+        message_obj.text = message_text
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
                                             username=self.name,
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
-                                            attachments=message_obj.attachments
                                             )
         timestamp = post_message["ts"]
         # We'll save the timestamp of the message we've just posted on the
@@ -254,12 +278,18 @@ class Bot(object):
             The git request string
 
         """
+
+        """ # MSG
         if self.messages.get(team_id):
             self.messages[team_id].update({user_id: message.Message(message_type="git_handler")})
         else:
             self.messages[team_id] = {user_id: message.Message(message_type="git_handler")}
         message_obj = self.messages[team_id][user_id]
         message_obj.channel = self.open_dm(user_id)
+        """ # MSG
+
+        message_type = "git_handler"
+        message_obj = self.get_message_object(team_id, user_id, message_type)
 
         # Find the action immediately following the git command.
         # git status, git add, git commit are curently supported. 
@@ -282,7 +312,6 @@ class Bot(object):
                                             username=self.name,
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
-                                            attachments=message_obj.attachments
                                             )
         timestamp = post_message["ts"]
         return retval
@@ -301,12 +330,17 @@ class Bot(object):
             The docker request string
 
         """
+
+        """ # MSG
         if self.messages.get(team_id):
             self.messages[team_id].update({user_id: message.Message(message_type="docker_handler")})
         else:
             self.messages[team_id] = {user_id: message.Message(message_type="docker_handler")}
         message_obj = self.messages[team_id][user_id]
         message_obj.channel = self.open_dm(user_id)
+        """ # MSG
+        message_type = "docker_handler"
+        message_obj = self.get_message_object(team_id, user_id, message_type)
 
         # Find the action immediately following the docker command.
         # docker container ls, docker image ls are curently supported. 
@@ -326,7 +360,6 @@ class Bot(object):
                                             username=self.name,
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
-                                            attachments=message_obj.attachments
                                             )
         timestamp = post_message["ts"]
         return retval
@@ -345,6 +378,8 @@ class Bot(object):
             id of the Slack user associated with the incoming event
 
         """
+
+        """ # MSG
         # We've imported a Message class from `message.py` that we can use
         # to create message objects for each onboarding message we send to a
         # user. We can use these objects to keep track of the progress each
@@ -366,6 +401,10 @@ class Bot(object):
         # Then we'll set that message object's channel attribute to the DM
         # of the user we'll communicate with
         message_obj.channel = self.open_dm(user_id)
+        """ # MSG
+
+        message_type = "echo_message"
+        message_obj = self.get_message_object(team_id, user_id, message_type)
         # We'll use the message object's method to create the attachments that
         # we'll want to add to our Slack message. This method will also save
         # the attachments on the message object which we're accessing in the
@@ -386,47 +425,12 @@ class Bot(object):
                                             username=self.name,
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
-                                            attachments=message_obj.attachments
                                             )
         timestamp = post_message["ts"]
         # We'll save the timestamp of the message we've just posted on the
         # message object which we'll use to update the message after a user
         # has completed an onboarding task.
         message_obj.timestamp = timestamp
-
-    def update_emoji(self, team_id, user_id):
-        """
-        Update onboarding welcome message after recieving a "reaction_added"
-        event from Slack. Update timestamp for welcome message.
-
-        Parameters
-        ----------
-        team_id : str
-            id of the Slack team associated with the incoming event
-        user_id : str
-            id of the Slack user associated with the incoming event
-
-        """
-        # These updated attachments use markdown and emoji to mark the
-        # onboarding task as complete
-        completed_attachments = {"text": ":white_check_mark: "
-                                         "~*Add an emoji reaction to this "
-                                         "message*~ :thinking_face:",
-                                 "color": "#439FE0"}
-        # Grab the message object we want to update by team id and user id
-        message_obj = self.messages[team_id].get(user_id)
-        # Update the message's attachments by switching in incomplete
-        # attachment with the completed one above.
-        message_obj.emoji_attachment.update(completed_attachments)
-        # Update the message in Slack
-        post_message = self.client.api_call("chat.update",
-                                            channel=message_obj.channel,
-                                            ts=message_obj.timestamp,
-                                            text=message_obj.text,
-                                            attachments=message_obj.attachments
-                                            )
-        # Update the timestamp saved on the message object
-        message_obj.timestamp = post_message["ts"]
 
     def update_pin(self, team_id, user_id):
         """
@@ -448,7 +452,13 @@ class Bot(object):
                                          ":round_pushpin:",
                                  "color": "#439FE0"}
         # Grab the message object we want to update by team id and user id
-        message_obj = self.messages[team_id].get(user_id)
+        #message_obj = self.messages[team_id].get(user_id)
+        # Grab the message object we want to update by team id and user id
+        if team_id in self.messages and user_id in self.messages[team_id]:
+            message_obj = self.messages[team_id].get(user_id)
+        else:
+            message_type = "update_pin"
+            message_obj = self.get_message_object(team_id, user_id, message_type)
         # Update the message's attachments by switching in incomplete
         # attachment with the completed one above.
         message_obj.pin_attachment.update(completed_attachments)
@@ -483,7 +493,13 @@ class Bot(object):
                                          ":mailbox_with_mail:",
                                  "color": "#439FE0"}
         # Grab the message object we want to update by team id and user id
-        message_obj = self.messages[team_id].get(user_id)
+        #message_obj = self.messages[team_id].get(user_id)
+        # Grab the message object we want to update by team id and user id
+        if team_id in self.messages and user_id in self.messages[team_id]:
+            message_obj = self.messages[team_id].get(user_id)
+        else:
+            message_type = "update_share"
+            message_obj = self.get_message_object(team_id, user_id, message_type)
         # Update the message's attachments by switching in incomplete
         # attachment with the completed one above.
         message_obj.share_attachment.update(completed_attachments)
@@ -497,7 +513,7 @@ class Bot(object):
         # Update the timestamp saved on the message object
         message_obj.timestamp = post_message["ts"]
 
-    def send_message(self, team_id, user_id, message):
+    def send_message(self, team_id, user_id, message_text):
         """
         Send a message on the part of the app for something that doesn't have
         explicit handling.
@@ -512,8 +528,15 @@ class Bot(object):
         """
     
         # Grab the message object we want to update by team id and user id
-        message_obj = self.messages[team_id].get(user_id)
+        #message_obj = self.messages[team_id].get(user_id)
+        # Grab the message object we want to update by team id and user id
+        if team_id in self.messages and user_id in self.messages[team_id]:
+            message_obj = self.messages[team_id].get(user_id)
+        else:
+            message_type = "send_message"
+            message_obj = self.get_message_object(team_id, user_id, message_type)
         # Update the message in Slack
+        message_obj.text = message_text
         post_message = self.client.api_call("chat.update",
                                             channel=message_obj.channel,
                                             ts=message_obj.timestamp,
