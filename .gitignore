@@ -1,4 +1,5 @@
 build/*
 env/*
-env_vars.py
 *.pyc
+tst.py
+.*.swp
