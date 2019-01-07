@@ -125,6 +125,13 @@ def _event_handler(event_type, slack_event):
         print ("After docker_handler")
         return make_response("Status Mesage Sent", 200,)
 
+    elif event_type in message_event_types and incoming_text.lower().find("circleci") >= 0:
+        # Call the bot circleci handler
+        print ("Calling circleci handler")
+        ret = pyBot.circleci_handler(team_id, user_id, incoming_text)
+        print ("After circleci_handler")
+        return make_response("Status Mesage Sent", 200,)
+
     # ============== Share Message Events ============= #
 
     # ============== Share Message Events ============= #
