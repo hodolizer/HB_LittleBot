@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-A routing layer for the LittleBot built using
+A routing layer for the LittleBot app using
 [Slack's Events API](https://api.slack.com/events-api) in Python
 Original code structure Courtesy Shannon Burns
 https://github.com/slackapi/Slack-Python-Onboarding-Tutorial/blob/master/LICENSE
@@ -15,6 +15,9 @@ import urllib
 pyBot = bot.Bot()
 slack = pyBot.client
 
+# Enable/Disable printing debug
+DPRINT=True
+
 app = Flask(__name__)
 
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", None)
@@ -25,23 +28,40 @@ if SLACK_SIGNING_SECRET is None:
     " SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET and SLACK_BOT_SCOPE defined"
     raise NameError(msg)
 
-# This is used to detect git commands. 
 import re
+
+# This is used to detect git commands. 
 git_regex = re.compile(r"\bgit\s")
+
+# This is used to detect docker commands. 
 docker_regex = re.compile(r"\bdocker\s")
 
+def dprint(msg):
+    """
+    Debug print. Set DPRINT=True to enable debug printing
+    """
+    if DPRINT:
+        print(msg)
+
 BOT_USER_ID = pyBot.get_bot_userid(BOT_USER_NAME)
-print ("\nbot id is %s\n" % (BOT_USER_ID,))
+dprint ("\nbot id is %s\n" % (BOT_USER_ID,))
 
 
 cmap = pyBot.get_channel_name_map()
 for chan, name in cmap.items():
-    print ("chan: %s name: %s" % (chan, name))
+    dprint ("chan: %s name: %s" % (chan, name))
 
-def get_help_message():
+def get_help_message(hello=False):
+    """
+    Construct a help message to tell what the bot can handle.
+    """
+
     git_supported = "|".join(bot.GIT_SUPPORTED)
-    handled_events = ["help", "echo", "docker [image|container]", "git %s" % (git_supported,)]
-    message = "I like to help. Here's what you can say to me\n%s" % "\n".join(handled_events)
+    handled_events = ["help", "echo", "docker [image|container]", "git %s circleci [...]" % (git_supported,)]
+    message = ''
+    if hello:
+        message = "Hello. I'm the %s bot.\n"
+    message += "I like to help. Here's what you can say to me\n%s" % "\n".join(handled_events)
     return message
 
 
@@ -58,7 +78,7 @@ def _event_handler(event_type, slack_event):
 
     """
     team_id = slack_event["team_id"]
-    print ("\nslack_event: %s" % (str(slack_event),))
+    dprint ("\nslack_event: %s" % (str(slack_event),))
     if "bot_id" in slack_event["event"]:
         user_id = slack_event["event"].get("bot_id")
     else:
@@ -71,31 +91,30 @@ def _event_handler(event_type, slack_event):
 
     if event_type == "message" \
         and user_id == BOT_USER_ID:
-        #print ("Ignoring my Bot message echo")
+        dprint ("Ignoring my Bot message echo")
         return make_response("", 200, {"X-Slack-No-Retry": 1})
 
     allowed_event_types = ['message', 'app_mention', 'pin_added', 'reaction_added', 'team_join']
     message_event_types = ['message', 'app_mention']
 
     if event_type not in allowed_event_types:
-        message = "Say what? Here's what you can say to me\n %s" % "\n".join(handled_events)
-        return make_response(message, 200,)
-
-    print ("checking for regex in %s" % incoming_text)
-    if event_type in ["message", "app_mention"] and git_regex.search(incoming_text):
-        print ("regex check True %s" % incoming_text)
-    else:
-        print ("regex check False %s" % incoming_text)
-        
+        help_message = get_help_message()
+        dprint ("writing msg: %s" % message_text)
+        pyBot.help_message(team_id, user_id, help_message)
+        # Return a helpful error message
+        return make_response("Help message sent", 200, {"X-Slack-No-Retry": 1})
 
     # ================ Team Join Events =============== #
     # When the user first joins a team, the type of event will be team_join
-    #if event_type == "team_join":
     if event_type in message_event_types \
         and incoming_text.lower().find("startitoff") >= 0 \
-        or incoming_text.lower().find("help") >= 0:
+        or incoming_text.lower().find("help") >= 0 \
+        or event_type == 'team_join':
         # Send the onboarding message
-        help_message = get_help_message()
+        hello = False
+        if event_type == 'team_join':
+            hello = True
+        help_message = get_help_message(hello=hello)
         pyBot.help_message(team_id, user_id, help_message)
         return make_response("Onboarding Message Sent", 200,)
 
@@ -112,24 +131,24 @@ def _event_handler(event_type, slack_event):
 
         # Needs more sophisticated language processing on the handlers. 
         # Call the bot git handler
-        print ("Calling git_handler")
+        dprint ("Calling git_handler")
         ret = pyBot.git_handler(team_id, user_id, incoming_text)
-        print ("After git_handler")
+        dprint ("After git_handler")
         return make_response("Status Mesage Sent", 200,)
 
     elif event_type in message_event_types and docker_regex.search(incoming_text):
 
         # Call the bot git handler
-        print ("Calling docker_handler")
+        dprint ("Calling docker_handler")
         ret = pyBot.docker_handler(team_id, user_id, incoming_text)
-        print ("After docker_handler")
+        dprint ("After docker_handler")
         return make_response("Status Mesage Sent", 200,)
 
     elif event_type in message_event_types and incoming_text.lower().find("circleci") >= 0:
         # Call the bot circleci handler
-        print ("Calling circleci handler")
+        dprint ("Calling circleci handler")
         ret = pyBot.circleci_handler(team_id, user_id, incoming_text)
-        print ("After circleci_handler")
+        dprint ("After circleci_handler")
         return make_response("Status Mesage Sent", 200,)
 
     # ============== Share Message Events ============= #
@@ -156,10 +175,10 @@ def _event_handler(event_type, slack_event):
     # If the event_type does not have a handler
     elif event_type in message_event_types: # no other message type found
         help_message = get_help_message()
-        print ("writing msg: %s" % message_text)
+        dprint ("writing msg: %s" % message_text)
         pyBot.help_message(team_id, user_id, help_message)
         # Return a helpful error message
-        return make_response(message, 200, {"X-Slack-No-Retry": 1})
+        return make_response("Help message sent", 200, {"X-Slack-No-Retry": 1})
 
     else:
         raise RuntimeError("%s" % str(slack_event))
@@ -229,8 +248,7 @@ def hears():
 
     # ====== Process Incoming Events from Slack ======= #
     # If the incoming request is an Event we've subcribed to
-    # print ("Process Incoming slack event: %s" % str(slack_event))
-    #if "event" in slack_event and slack_event["username"] != user_id: 
+    # dprint ("Process Incoming slack event: %s" % str(slack_event))
     if "event" in slack_event:
         event_type = slack_event["event"]["type"]
         # Then handle the event by event_type and have your bot respond

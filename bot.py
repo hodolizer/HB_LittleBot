@@ -315,6 +315,7 @@ class Bot(object):
             retval = p.wait()
         else:
             message_obj.text = docker_action # The usage message
+            retval = 0
 
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
@@ -338,12 +339,12 @@ class Bot(object):
 
         #my_repo_name = "HB_Littlebot"
 
+        self.get_circleci_repos()
         repo_name = ''
         outgoing_text = "Sorry, I could not determine which repo you wanted.\n" \
                         "I know about these: %s" % (str(", ".join(self.circleci_repo_list),))
         message_type = "helpmsg"
 
-        self.get_circleci_repos()
         if self.circleci_repo_list:
 
             # Retrieve User data
@@ -421,12 +422,11 @@ class Bot(object):
         user_name = self.user_name_map[user_id]['profile']['display_name']
 
         print ("IN Echo handler with message: %s" % (incoming_text,))
+        outgoing_text = "Hi %s. You said %s." %  (user_name,incoming_text)
         if incoming_text.lower().find("hunka hunka") >= 0:
-            outgoing_text = incoming_text + " Yes, %s, I have a burning love for Elvis too." % user_name
-        else:
-            outgoing_text = incoming_text
+            outgoing_text += " Yes, I have a burning love for bots too."
         print ("Looking in %s for id %s" % (self.user_name_map[user_id]['profile'], user_id))
-        message_obj.text += "Hi %s. You said %s" %  (user_name,outgoing_text)
+        message_obj.text  = outgoing_text
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
                                             username=self.name,
