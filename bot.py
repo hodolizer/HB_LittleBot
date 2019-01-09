@@ -239,8 +239,9 @@ class Bot(object):
 
     def git_usage_message(self):
 
-        return ("I'm sorry. I don't understand your git command." 
-           "I understand git [%s] if you would like to try one of those." % "|".join(GIT_SUPPORTED))
+        return ("""I'm sorry. I don't understand your git command.
+I understand git [%s] if you would like to try one of those.
+Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
 
     def git_handler(self, team_id, user_id, incoming_text):
         """
@@ -266,15 +267,28 @@ class Bot(object):
         match_obj = p2.search(incoming_text)
         if match_obj:
             git_action = match_obj.group()
+        bad_command = False
         if git_action and git_action in ['status', 'add', 'commit']:
-            p = subprocess.Popen('git %s *' % git_action, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            for line in p.stdout.readlines():
-                message_obj.text += "%s" % line
-            retval = p.wait()
-        else: # git_action undefined. 
-            message_obj.text = self.git_usage_message()
-            retval = 0
-
+            arg_string = ''
+            if git_action == 'commit':
+                # We need a commit message flagged with -m
+                flag_pos = incoming_text.find("-m")
+                if flag_pos >= 0:
+                    arg_string = '-m "%s"' % incoming_text[flag_pos + len("-m"):]
+                else:
+                    # Can't do a commit without a commit message
+                    bad_command = True
+            elif git_action == 'add':
+                # We only commit the whole directory
+                arg_string = " ."
+            if not bad_command:
+                p = subprocess.Popen('git %s %s' % (git_action, arg_string), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                for line in p.stdout.readlines():
+                    message_obj.text += "%s" % line
+                retval = p.wait()
+            else: # git_action undefined. 
+                message_obj.text = self.git_usage_message()
+                retval = 1
 
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
@@ -282,7 +296,11 @@ class Bot(object):
                                             icon_emoji=self.emoji,
                                             text=message_obj.text,
                                             )
-        timestamp = post_message["ts"]
+        if "ts" in post_message:
+            timestamp = post_message["ts"]
+            message_obj.timestamp = timestamp
+        else:
+            print ("post_message: %s" % str(post_message))
         return retval
 
     def docker_handler(self, team_id, user_id, incoming_text):
