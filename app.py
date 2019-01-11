@@ -11,12 +11,10 @@ import bot
 from flask import Flask, request, make_response, render_template
 from slackclient import SlackClient
 import urllib
+from bot import dprint
 
 pyBot = bot.Bot()
 slack = pyBot.client
-
-# Enable/Disable printing debug
-DPRINT=True
 
 app = Flask(__name__)
 
@@ -35,13 +33,6 @@ git_regex = re.compile(r"\bgit\s")
 
 # This is used to detect docker commands. 
 docker_regex = re.compile(r"\bdocker\s")
-
-def dprint(msg):
-    """
-    Debug print. Set DPRINT=True to enable debug printing
-    """
-    if DPRINT:
-        print(msg)
 
 BOT_USER_ID = pyBot.get_bot_userid(BOT_USER_NAME)
 dprint ("\nbot id is %s\n" % (BOT_USER_ID,))

@@ -20,6 +20,15 @@ from slackclient import SlackClient
 authed_teams = {}
 GIT_SUPPORTED = ["status", "add", "commit"]
 
+# Enable/Disable printing debug
+DPRINT=True
+
+def dprint(msg):
+    """
+    Debug print. Set DPRINT=True to enable debug printing
+    """
+    if DPRINT:
+        print(msg)
 
 class Bot(object):
     """ Instanciates a Bot object to handle Slack onboarding interactions."""
@@ -45,7 +54,7 @@ class Bot(object):
  
         bot_oauth_default="xoxb-445512136161-446113431922-MbaetJ62o8U1mr4u91BTauSq"
         bot_oauth_token = os.environ.get("SLACK_BOT_OAUTH_ACCESS",bot_oauth_default)
-        print ("calling SlackClient with token %s" % (bot_oauth_token,))
+        #dprint ("calling SlackClient with token %s" % (bot_oauth_token,))
         self.client = SlackClient(bot_oauth_token)
 
         self.circleci_user_token = os.environ['CIRCLECI_HODOLIZER_TOKEN']
@@ -100,7 +109,7 @@ class Bot(object):
                 channel_id_name_map[data["name"]] = id
             return channel_id_name_map
         else:
-            print ("No channel mappings could be found")
+            dprint ("No channel mappings could be found")
             
     def get_bot_userid(self, bot_name):
         # Courtesy of Twilio
@@ -113,16 +122,16 @@ class Bot(object):
                 u_name = udata["profile"].get("display_name")
                 if not u_name:
                     u_name = udata["profile"].get("real_name")
-                print ("got user: %s \t id: %s" % (u_name, uid))
+                #dprint ("got user: %s \t id: %s" % (u_name, uid))
                     
-                #print ("%s" % str(udata))
+                #dprint ("%s" % str(udata))
             for user in users:
                 if 'name' in users[user] and users[user].get('name') == bot_name:
                     bot_id = users[user]["profile"].get('bot_id', user)
-                    #print("Bot ID for '" + users[user]['name'] + "' is " + bot_id)
-                    #print("Bot Record: %s" % str(users[user]))
+                    #dprint("Bot ID for '" + users[user]['name'] + "' is " + bot_id)
+                    #dprint("Bot Record: %s" % str(users[user]))
                     return bot_id
-        print("could not find bot user with the name " + bot_name)
+        dprint("could not find bot user with the name " + bot_name)
         return ''
 
     def auth(self, code):
@@ -141,14 +150,14 @@ class Bot(object):
         # After the user has authorized this app for use in their Slack team,
         # Slack returns a temporary authorization code that we'll exchange for
         # an OAuth token using the oauth.access endpoint
-        print ("\ncalling auth client.api_call\n")
+        dprint ("\ncalling auth client.api_call\n")
         auth_response = self.client.api_call(
                                 "oauth.access",
                                 client_id=self.oauth["client_id"],
                                 client_secret=self.oauth["client_secret"],
                                 code=code
                                 )
-        print ("\ncclient.api_call returns %s\n" % (str(auth_response),))
+        dprint ("\ncclient.api_call returns %s\n" % (str(auth_response),))
         # To keep track of authorized teams and their associated OAuth tokens,
         # we will save the team ID and bot tokens to the global
         # authed_teams object
@@ -178,8 +187,8 @@ class Bot(object):
         """
         new_dm = self.client.api_call("im.open",
                                       user=user_id)
-        print ("\nOpen DM to user %s channel %s\n" % (user_id, str(new_dm["channel"])))
-        #print ("\nnew_dm: %s\n" % str(new_dm))
+        dprint("\nOpen DM to user %s channel %s\n" % (user_id, str(new_dm["channel"])))
+        #dprint ("\nnew_dm: %s\n" % str(new_dm))
         dm_id = new_dm["channel"]["id"]
         return dm_id
 
@@ -289,6 +298,8 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
             else: # git_action undefined. 
                 message_obj.text = self.git_usage_message()
                 retval = 1
+        else:
+            retval = 1
 
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
@@ -300,7 +311,7 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
             timestamp = post_message["ts"]
             message_obj.timestamp = timestamp
         else:
-            print ("post_message: %s" % str(post_message))
+            dprint ("post_message: %s" % str(post_message))
         return retval
 
     def docker_handler(self, team_id, user_id, incoming_text):
@@ -324,9 +335,9 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         # Find the action immediately following the docker command.
         # docker container ls, docker image ls are curently supported. 
         docker_action = docker_parser.parse_command(incoming_text)
-        print ("Got docker_action: %s from incoming text: %s" % (docker_action, incoming_text))
+        dprint ("Got docker_action: %s from incoming text: %s" % (docker_action, incoming_text))
         if docker_action[:len('docker')] == 'docker':
-            print ("running docker action: %s" % (docker_action))
+            dprint ("running docker action: %s" % (docker_action))
             p = subprocess.Popen('%s' % docker_action, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             for line in p.stdout.readlines():
                 message_obj.text += "%s" % line
@@ -352,11 +363,61 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         project_info_list = self.circleci_client.projects.list_projects()
         for project_dict in project_info_list:
             self.circleci_repo_list.append(project_dict["reponame"])
+
+    def circleci_build_info(self, raw_results):
+        """
+        Returns selected circleci information about the last build.
+
+        Input is raw_results from a call to circleci build.recent
+        """
+        if not isinstance(raw_results, dict):
+            dprint ("build info: Not a dict: %s" % (str(raw_results),))
+            return None
+        else:
+            rr = raw_results
+
+            build_version = rr["platform"]
+            build_url = rr["build_url"]
+            commit_date = rr["committer_date"]
+            author_name = rr["author_name"]
+            build_num = rr["build_num"]
+            outcome = rr["outcome"] 
+
+            committer_names = []
+            commit_urls = []
+            commit_subjects = []
+            commit_dates = []
+
+            for commit_detail in rr.get("all_commit_detail",[]):
+                committer_names.append(rr.get("committer_name", "Not found"))
+                commit_urls.append(rr.get("commit_url", "Not found"))
+                commit_subjects.append(rr.get("subject", "Not found"))
+                commit_dates.append(rr.get("committer_date", "Not found"))
+
+            # Should html'ify this for return
+            results_string = """
+Build Version: %(build_version)s\n
+Build URL: %(build_url)s\n
+Commit Date: %(commit_date)s\n
+Author Name: %(author_name)s\n
+Build Number: %(build_num)s\n """ % locals()
+
+            for commit_subject, commiter_name, commit_url, commiter_date in list(zip(commit_subjects,
+                committer_names, 
+                commit_urls,
+                commit_dates)):
+                results_string = results_string + """
+Commit Subject: %s\n
+Committer Name: %s\n
+Commit Date: %s\n
+Commit URL: %s\n """ % (commit_subject, commier_name, commiter_date, commit_url)
+
+            return results_string
+            
             
     def circleci_handler(self, team_id, user_id, incoming_text):
 
-        #my_repo_name = "HB_Littlebot"
-
+        #my_repo_name = "HB_Littlebot" 
         self.get_circleci_repos()
         repo_name = ''
         outgoing_text = "Sorry, I could not determine which repo you wanted.\n" \
@@ -367,7 +428,7 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
 
             # Retrieve User data
             user_info = self.circleci_client.user.info()
-            print ("\nUSER info: %s\n" % (str(user_info),))
+            dprint ("\nUSER info: %s\n" % (str(user_info),))
             user_name = user_info['login']
 
             incoming_text = incoming_text.lower()
@@ -376,11 +437,19 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
                 if incoming_text.find(repo.lower()) >= 0:
                         repo_name = repo
             if repo_name:
-                if "last build" in incoming_text:
+                if incoming_text.find("last build") >= 0:
                     last_build = self.circleci_client.build.recent(user_name, repo_name, branch='master')
-                    message_type = "circleci_handler"
-                    outgoing_text = last_build
+                    if last_build:
+                        outgoing_text = self.circleci_build_info(last_build[0])
+                        print("build_info: %s" % (str(last_build),))
+                        message_type = "circleci_last_build"
+                    else:
+                        message_type = "circleci_handler"
+                        outgoing_text = "Sorry, I could not get that information.\n" \
+                                        "I know about these repos: %s" % (str(", ".join(self.circleci_repo_list),))
+                        message_type = "helpmsg"
 
+        dprint ("circleci_handler returning %s" % outgoing_text)
         message_obj = self.get_message_object(team_id, user_id, message_type=message_type)
         message_obj.text = outgoing_text
 
@@ -400,18 +469,18 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         """
         # Retrieve information about projects
         project_info_list = self.circleci_client.projects.list_projects()
-        #print ("\nPROJECT info: %s\n" % (str(project_info),))
+        #dprint ("\nPROJECT info: %s\n" % (str(project_info),))
         for project_dict in project_info_list:
             my_repo_name = "HB_Littlebot"
             if project_dict["reponame"] == my_repo_name:
-                print ("\nPROJECT info: %s\n" % (str(project_dict),))
+                dprint ("\nPROJECT info: %s\n" % (str(project_dict),))
             repo_name = project_dict["reponame"]
-        print ("searching for %s" % repo_name)
+        dprint ("searching for %s" % repo_name)
 
         # Retrieve last 10 builds of branch master
         recent_builds = self.circleci_client.build.recent(user_name, repo_name, branch='master')
         for key, val in recent_builds[0].items():
-            print ("key:%s\n\t%s" % (key,val))
+            dprint ("key:%s\n\t%s" % (key,val))
         """
 
     def echo_message(self, team_id, user_id, incoming_text):
@@ -435,15 +504,15 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         # we'll want to add to our Slack message. This method will also save
         # the attachments on the message object which we're accessing in the
         # API call below through the message object's `attachments` attribute.
-        #message_obj.create_attachments()
+        message_obj.create_attachments()
 
         user_name = self.user_name_map[user_id]['profile']['display_name']
 
-        print ("IN Echo handler with message: %s" % (incoming_text,))
+        dprint ("IN Echo handler with message: %s" % (incoming_text,))
         outgoing_text = "Hi %s. You said %s." %  (user_name,incoming_text)
         if incoming_text.lower().find("hunka hunka") >= 0:
             outgoing_text += " Yes, I have a burning love for bots too."
-        print ("Looking in %s for id %s" % (self.user_name_map[user_id]['profile'], user_id))
+        dprint ("Looking in %s for id %s" % (self.user_name_map[user_id]['profile'], user_id))
         message_obj.text  = outgoing_text
         post_message = self.client.api_call("chat.postMessage",
                                             channel=message_obj.channel,
