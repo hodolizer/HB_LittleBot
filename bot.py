@@ -18,7 +18,7 @@ from slackclient import SlackClient
 # as a global object. When your bot is out of development, it's best to
 # save this in a more persistant memory store.
 authed_teams = {}
-GIT_SUPPORTED = ["status", "add", "commit"]
+GIT_SUPPORTED = ["status", "add", "commit", "push"]
 
 # Enable/Disable printing debug
 DPRINT=True
@@ -277,19 +277,24 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         if match_obj:
             git_action = match_obj.group()
         bad_command = False
-        if git_action and git_action in ['status', 'add', 'commit']:
+        if git_action and git_action in GIT_SUPPORTED:
             arg_string = ''
             if git_action == 'commit':
                 # We need a commit message flagged with -m
                 flag_pos = incoming_text.find("-m")
                 if flag_pos >= 0:
-                    arg_string = '-m "%s"' % incoming_text[flag_pos + len("-m"):]
+                    arg_string = "-m '%s'" % incoming_text[flag_pos + len("-m"):]
                 else:
                     # Can't do a commit without a commit message
                     bad_command = True
             elif git_action == 'add':
                 # We only commit the whole directory
                 arg_string = " ."
+            elif git_action == 'push':
+                # We only commit the whole directory
+                arg_string = ""
+            else:
+                bad_command = True
             if not bad_command:
                 p = subprocess.Popen('git %s %s' % (git_action, arg_string), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 for line in p.stdout.readlines():
