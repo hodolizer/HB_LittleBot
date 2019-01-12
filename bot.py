@@ -279,6 +279,7 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         bad_command = False
         if git_action and git_action in GIT_SUPPORTED:
             arg_string = ''
+            print ("git action is %s" % (git_action,))
             if git_action == 'commit':
                 # We need a commit message flagged with -m
                 flag_pos = incoming_text.find("-m")
@@ -290,8 +291,8 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
             elif git_action == 'add':
                 # We only commit the whole directory
                 arg_string = " ."
-            elif git_action == 'push':
-                # We only commit the whole directory
+            elif git_action == 'push' or git_action == 'status':
+                # No args for these
                 arg_string = ""
             else:
                 bad_command = True
@@ -381,13 +382,14 @@ Commit also requires a -m commit_message""" % "|".join(GIT_SUPPORTED))
         else:
             rr = raw_results
 
-            build_version = rr["platform"]
-            build_url = rr["build_url"]
-            commit_date = rr["committer_date"]
-            author_name = rr["author_name"]
-            build_num = rr["build_num"]
-            outcome = rr["outcome"] 
+            build_version = rr.get("platform","Not found")
+            build_url = rr.get("build_url","Not found")
+            commit_date = rr.get("committer_date","Not found")
+            author_name = rr.get("author_name","Not found")
+            build_num = rr.get("build_num","Not found")
+            outcome = rr.get("outcome","Not found") 
 
+            # There may be several commits in this build
             committer_names = []
             commit_urls = []
             commit_subjects = []
@@ -405,7 +407,8 @@ Build Version: %(build_version)s\n
 Build URL: %(build_url)s\n
 Commit Date: %(commit_date)s\n
 Author Name: %(author_name)s\n
-Build Number: %(build_num)s\n """ % locals()
+Build Number: %(build_num)s\n 
+Outcome: %(outcome)s""" % locals()
 
             for commit_subject, commiter_name, commit_url, commiter_date in list(zip(commit_subjects,
                 committer_names, 
@@ -509,7 +512,7 @@ Commit URL: %s\n """ % (commit_subject, commier_name, commiter_date, commit_url)
         # we'll want to add to our Slack message. This method will also save
         # the attachments on the message object which we're accessing in the
         # API call below through the message object's `attachments` attribute.
-        message_obj.create_attachments()
+        #message_obj.create_attachments()
 
         user_name = self.user_name_map[user_id]['profile']['display_name']
 

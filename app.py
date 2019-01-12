@@ -48,7 +48,10 @@ def get_help_message(hello=False):
     """
 
     git_supported = "|".join(bot.GIT_SUPPORTED)
-    handled_events = ["help", "echo", "docker [image|container]", "git %s circleci [...]" % (git_supported,)]
+    handled_events = ["help (this message)", 
+        "docker [image|container|help]", 
+        "git %s" % (git_supported,), 
+        "circleci <repo_name> 'last build'"]
     message = ''
     if hello:
         message = "Hello. I'm the %s bot.\n"
@@ -80,6 +83,8 @@ def _event_handler(event_type, slack_event):
     else:
         incoming_text = ''
 
+    dprint("Processing incoming text: %s" % (incoming_text,))
+
     if event_type == "message" \
         and user_id == BOT_USER_ID:
         dprint ("Ignoring my Bot message echo")
@@ -90,26 +95,12 @@ def _event_handler(event_type, slack_event):
 
     if event_type not in allowed_event_types:
         help_message = get_help_message()
-        dprint ("writing msg: %s" % message_text)
+        dprint ("writing msg: %s" % help_message)
         pyBot.help_message(team_id, user_id, help_message)
         # Return a helpful error message
         return make_response("Help message sent", 200, {"X-Slack-No-Retry": 1})
 
-    # ================ Team Join Events =============== #
-    # When the user first joins a team, the type of event will be team_join
-    if event_type in message_event_types \
-        and incoming_text.lower().find("startitoff") >= 0 \
-        or incoming_text.lower().find("help") >= 0 \
-        or event_type == 'team_join':
-        # Send the onboarding message
-        hello = False
-        if event_type == 'team_join':
-            hello = True
-        help_message = get_help_message(hello=hello)
-        pyBot.help_message(team_id, user_id, help_message)
-        return make_response("Onboarding Message Sent", 200,)
-
-    elif event_type in message_event_types \
+    if  event_type in message_event_types \
         and (incoming_text.find("echo") >= 0 
         or incoming_text.find("hunka hunka") >= 0) \
         and user_id != BOT_USER_ID:
@@ -162,11 +153,25 @@ def _event_handler(event_type, slack_event):
         pyBot.update_pin(team_id, user_id)
         return make_response("Welcome message updates with pin", 200,)
 
+    # When the user first joins a team, the type of event will be team_join
+    elif event_type in message_event_types \
+        and incoming_text.lower().find("startitoff") >= 0 \
+        or incoming_text.lower().find("help") >= 0 \
+        or event_type == 'team_join':
+        # Send the onboarding message
+        hello = False
+        if event_type == 'team_join':
+            hello = True
+        help_message = get_help_message(hello=hello)
+        pyBot.help_message(team_id, user_id, help_message)
+        return make_response("Onboarding Message Sent", 200,)
+
+
     # ============= Event Type Not Found! ============= #
     # If the event_type does not have a handler
     elif event_type in message_event_types: # no other message type found
         help_message = get_help_message()
-        dprint ("writing msg: %s" % message_text)
+        dprint ("writing msg: %s" % help_message)
         pyBot.help_message(team_id, user_id, help_message)
         # Return a helpful error message
         return make_response("Help message sent", 200, {"X-Slack-No-Retry": 1})
